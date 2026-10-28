@@ -193,6 +193,20 @@ ApplicationWindow {
         viewMenuPopup.openAt(Math.max(20, Math.round(window.width * 0.45)), 96);
     }
 
+    // Keys that differ between normal and vim mode, for the palette and the
+    // cheat sheet. The command table stores the normal-mode value.
+    function displayKeys(id, keys) {
+        if (theme.keyMode === "vim") {
+            if (id === "files.bookmark")
+                return "Ctrl+Shift+D";
+            if (id === "view.hidden")
+                return "Ctrl+Shift+H";
+            if (id === "view.sidebarFocus")
+                return "Ctrl+B / Ctrl+H";
+        }
+        return keys;
+    }
+
     function executeCommand(id, count, extend) {
         // Visual-mode markers are state, not commands, but they travel through
         // the same path so the vim layer can stay dumb.
@@ -278,11 +292,11 @@ ApplicationWindow {
           run: function() { if (pane1Loader.item) setActivePane(activePane === pane0 ? pane1Loader.item : pane0); } },
         { id: "view.sidebarToggle", section: qsTr("View"), title: qsTr("Expand / collapse sidebar"), keys: "F9",
           run: function() { sidebar.expanded = !sidebar.expanded; } },
-        { id: "view.sidebarFocus", section: qsTr("View"), title: qsTr("Focus sidebar"), keys: "Ctrl+B / Ctrl+H",
+        { id: "view.sidebarFocus", section: qsTr("View"), title: qsTr("Focus sidebar"), keys: "Ctrl+B",
           run: function() { toggleSidebarFocus(); } },
         { id: "view.menu", section: qsTr("View"), title: qsTr("View, sort and zoom options…"),
           run: function() { openViewMenu(); } },
-        { id: "view.hidden", section: qsTr("View"), title: qsTr("Toggle hidden files"), keys: "Ctrl+Shift+H", vim: ".",
+        { id: "view.hidden", section: qsTr("View"), title: qsTr("Toggle hidden files"), keys: "Ctrl+H", vim: ".",
           run: function() { toggleShowHidden(); } },
         { id: "view.zoomIn", section: qsTr("View"), title: qsTr("Bigger icons"), keys: "Ctrl++",
           run: function() { theme.stepZoom(1); } },
@@ -337,7 +351,7 @@ ApplicationWindow {
               var paths = window.selectedPaths();
               showProperties(paths.length > 0 ? paths : [engine.current_path]);
           } },
-        { id: "files.bookmark", section: qsTr("Files"), title: qsTr("Bookmark this folder"), keys: "Ctrl+Shift+D", vim: "m",
+        { id: "files.bookmark", section: qsTr("Files"), title: qsTr("Bookmark this folder"), keys: "Ctrl+D", vim: "m",
           enabled: function() { return engine.location_kind === "dir"; },
           run: function() { core.add_bookmark(engine.current_path); } },
         { id: "files.contextMenu", section: qsTr("Files"), title: qsTr("Open context menu"), keys: "Shift+F10",
@@ -983,11 +997,22 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+0"; onActivated: theme.zoomIndex = 2 }
     Shortcut { sequence: "Ctrl+1"; onActivated: engine.set_view("grid") }
     Shortcut { sequence: "Ctrl+2"; onActivated: engine.set_view("list") }
+    Shortcut { sequence: "Ctrl+D"; enabled: theme.keyMode === "normal" && engine.location_kind === "dir"; onActivated: core.add_bookmark(engine.current_path) }
     Shortcut { sequence: "Ctrl+Shift+D"; enabled: engine.location_kind === "dir"; onActivated: core.add_bookmark(engine.current_path) }
     Shortcut { sequence: "Ctrl+Shift+C"; enabled: window.gridKeyboardReady; onActivated: window.copyPathOfSelection() }
     Shortcut { sequence: "Ctrl+Shift+P"; onActivated: window.openPalette("") }
     Shortcut { sequence: "Ctrl+B"; onActivated: window.toggleSidebarFocus() }
-    Shortcut { sequence: "Ctrl+H"; onActivated: window.toggleSidebarFocus() }
+    Shortcut {
+        sequence: "Ctrl+H"
+        onActivated: {
+            // Normal mode keeps Ctrl+H for hidden files; vim mode gives it to
+            // the sidebar because vim already has "." for hidden files.
+            if (theme.keyMode === "vim")
+                window.toggleSidebarFocus();
+            else
+                engine.toggle_show_hidden();
+        }
+    }
     Shortcut { sequence: "Shift+F10"; enabled: window.gridKeyboardReady; onActivated: window.openContextMenuFromKeyboard() }
     Shortcut { sequence: "F1"; onActivated: window.openKeyboardHelp() }
     Shortcut {
@@ -2675,7 +2700,7 @@ ApplicationWindow {
         if (kind === "dir") {
             m.push({ text: qsTr("Open Terminal Here"), icon: "terminal", itemKey: "terminal", separatorBefore: true, action: function() { core.open_terminal(e.current_path); } });
             var marked = core.is_bookmarked(e.current_path);
-            m.push({ text: marked ? qsTr("Remove from Sidebar") : qsTr("Add to Sidebar"), icon: "push-pin", shortcut: "Ctrl+Shift+D", itemKey: "pin", action: function() {
+            m.push({ text: marked ? qsTr("Remove from Sidebar") : qsTr("Add to Sidebar"), icon: "push-pin", shortcut: theme.keyMode === "vim" ? "Ctrl+Shift+D" : "Ctrl+D", itemKey: "pin", action: function() {
                 if (marked)
                     core.remove_bookmark(e.current_path);
                 else
@@ -3532,7 +3557,7 @@ ApplicationWindow {
             { id: "extract", name: qsTr("Extract"), icon: "archive", shortcut: "" },
             { id: "browse_archive", name: qsTr("Browse Archive"), icon: "folder-open", shortcut: "" },
             { id: "star", name: qsTr("Star / Unstar"), icon: "star", shortcut: "" },
-            { id: "pin", name: qsTr("Add / Remove from Sidebar"), icon: "push-pin", shortcut: "Ctrl+Shift+D" },
+            { id: "pin", name: qsTr("Add / Remove from Sidebar"), icon: "push-pin", shortcut: "" },
             { id: "scripts", name: qsTr("Scripts"), icon: "scroll", shortcut: "" },
             { id: "admin", name: qsTr("Open as Administrator"), icon: "shield-check", shortcut: "" },
             { id: "delete", name: qsTr("Move to Trash"), icon: "trash", shortcut: "Del" },

@@ -113,8 +113,9 @@ Popup {
                 id: cmd.id,
                 title: cmd.title,
                 section: cmd.section,
-                keys: cmd.keys || "",
-                vim: cmd.vim || "",
+                keys: (typeof window !== "undefined" && window && window.displayKeys)
+                      ? window.displayKeys(cmd.id, cmd.keys || "") : (cmd.keys || ""),
+                vim: (typeof theme !== "undefined" && theme && theme.keyMode === "vim") ? (cmd.vim || "") : "",
                 score: s
             });
         }

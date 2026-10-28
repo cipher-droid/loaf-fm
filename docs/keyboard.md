@@ -6,7 +6,18 @@ the command palette and the in-app cheat sheet, so the three can never drift
 apart.
 
 Press `?` (or `F1`) at any time to see the cheat sheet, and `Ctrl+Shift+P`
-(or `:` in the file view) to open the command palette.
+to open the command palette.
+
+Loaf has two key modes, switched in **Settings → Behavior → Keyboard**:
+
+- **Normal** (default): the classic shortcuts below, and typing a letter filters
+  the current folder.
+- **Vim**: motions, counts and visual mode, with `/`, `:` and `?` on the file
+  view. `Ctrl` + `d` pages down, so bookmarks move to `Ctrl` + `Shift` + `D`,
+  and `Ctrl` + `H` focuses the sidebar (`Ctrl` + `Shift` + `H` toggles hidden
+  files).
+
+The cheat sheet only shows the keys for the mode you are in.
 
 ## Command palette
 
@@ -22,11 +33,10 @@ Press `?` (or `F1`) at any time to see the cheat sheet, and `Ctrl+Shift+P`
 Commands that need a selection or a writable folder are hidden while they
 cannot run, so the list only offers things that will work.
 
-## Vim keys
+## Vim mode
 
-Vim keys are on by default in the file view and can be switched off in
-**Settings → Behavior → Keyboard**. When they are off, typing a letter filters
-the current folder again.
+Vim mode is opt-in (**Settings → Behavior → Keyboard**). In Normal mode the
+same letters filter the current folder instead.
 
 ### Motions
 
@@ -77,7 +87,7 @@ the current folder again.
 | `Alt` + `1` … `9` | Jump to a tab |
 | `s` / `F3` | Toggle split view |
 | `S` | Focus the other pane |
-| `Ctrl` + `B` / `Ctrl` + `H` | Focus the sidebar (`j`/`k`, `Enter`, `Esc`) |
+| `Ctrl` + `B` (vim: also `Ctrl` + `H`) | Focus the sidebar (`j`/`k`, `Enter`, `Esc`) |
 | `F9` | Expand / collapse the sidebar |
 | `Ctrl` + `1` / `Ctrl` + `2` | Grid / list view |
 | `Ctrl` + `+` / `-` / `0` | Icon size |
@@ -108,8 +118,8 @@ the current folder again.
 | `Ctrl` + `S` | Select by pattern |
 | `Ctrl` + `C` / `X` / `V` | Copy / cut / paste |
 | `Ctrl` + `Shift` + `C` | Copy path |
-| `Ctrl` + `Shift` + `D` | Bookmark this folder |
-| `Ctrl` + `Shift` + `H` | Toggle hidden files |
+| `Ctrl` + `D` (vim: `Ctrl` + `Shift` + `D`) | Bookmark this folder |
+| `Ctrl` + `H` (vim: `Ctrl` + `Shift` + `H` or `.`) | Toggle hidden files |
 | `Ctrl` + `Z` / `Ctrl` + `Shift` + `Z` | Undo / redo |
 | `Shift` + `F10` | Context menu for the selection |
 | `Alt` + `Enter` | Properties |

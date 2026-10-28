@@ -97,8 +97,10 @@ Item {
     // Single click on a selected item's name starts renaming.
     property bool clickToRename: false
     property bool searchContents: false
-    // Vim-style keys in the file view (h/j/k/l, gg/G, dd, /, :, ? ...).
-    property bool vimKeys: true
+    // Keyboard mode: "normal" keeps the classic shortcuts and type-to-filter,
+    // "vim" adds motions and gives Ctrl+d / Ctrl+h to the file view.
+    property string keyMode: "normal"
+    readonly property bool vimKeys: keyMode === "vim"
 
     FontLoader { id: fontReg; source: "qrc:/loaf/fonts/Phosphor.ttf" }
     FontLoader { id: fontBold; source: "qrc:/loaf/fonts/Phosphor-Bold.ttf" }
@@ -2085,8 +2087,14 @@ Item {
         if (value.length > 0) clickToRename = (value === "true");
         value = readSetting("searchContents");
         if (value.length > 0) searchContents = (value === "true");
-        value = readSetting("vimKeys");
-        if (value.length > 0) vimKeys = (value === "true");
+        value = readSetting("keyMode");
+        if (value.length > 0) {
+            keyMode = (value === "vim") ? "vim" : "normal";
+        } else {
+            // Migrate the short-lived boolean setting from earlier builds.
+            value = readSetting("vimKeys");
+            if (value === "true") keyMode = "vim";
+        }
         value = readSetting("contextMenuMode");
         if (value.length > 0) contextMenuMode = value;
         value = readSetting("disabledMenuItems");
@@ -2150,7 +2158,7 @@ Item {
     onFontScaleSettingChanged: writeSetting("fontScale", fontScaleSetting)
     onClickToRenameChanged: writeSetting("clickToRename", clickToRename)
     onSearchContentsChanged: writeSetting("searchContents", searchContents)
-    onVimKeysChanged: writeSetting("vimKeys", vimKeys)
+    onKeyModeChanged: writeSetting("keyMode", keyMode)
     onContextMenuModeChanged: writeSetting("contextMenuMode", contextMenuMode)
     onDisabledMenuItemsChanged: writeSetting("disabledMenuItems", JSON.stringify(disabledMenuItems))
     onHideTrashWhenEmptyChanged: writeSetting("hideTrashWhenEmpty", hideTrashWhenEmpty)

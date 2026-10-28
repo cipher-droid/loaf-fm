@@ -86,7 +86,7 @@ ColumnLayout {
             visible: root.matchHidden
             icon: "eye"
             title: qsTr("Show hidden files")
-            subtitle: qsTr("Display files and folders prefixed with a dot (Ctrl+Shift+H)")
+            subtitle: qsTr("Display files and folders prefixed with a dot (Ctrl+H, or . in vim mode)")
 
             LoafSwitch {
                 id: hiddenSwitch
@@ -173,12 +173,17 @@ ColumnLayout {
 
         SettingRow {
             icon: "keyboard"
-            title: qsTr("Vim keys")
-            subtitle: qsTr("h/j/k/l, gg/G, dd, /, :, ? in the file view. Turn off to type-to-filter again")
+            title: qsTr("Key mode")
+            subtitle: qsTr("Normal keeps the classic shortcuts and type-to-filter. Vim adds motions, counts and dd/yy")
 
-            LoafSwitch {
-                checked: theme.vimKeys
-                onToggled: function(c) { theme.vimKeys = c; }
+            LoafSegmented {
+                Layout.preferredWidth: (typeof settingsView !== "undefined" && settingsView.isCompact) ? 150 : 260
+                options: [
+                    { value: "normal", label: qsTr("Normal"), icon: "keyboard", shortLabel: "Normal" },
+                    { value: "vim", label: qsTr("Vim"), icon: "command", shortLabel: "Vim" }
+                ]
+                value: theme.keyMode
+                onSelected: function(v) { theme.keyMode = v; }
             }
         }
 

@@ -204,17 +204,24 @@ folder" from browsers and other apps opens it.
 ## Keyboard Shortcuts
 
 Loaf is fully keyboard-driven. Press `?` (or `F1`) for the cheat sheet,
-`Ctrl` + `Shift` + `P` (or `:`) for the command palette, and see
+`Ctrl` + `Shift` + `P` for the command palette, and see
 [docs/keyboard.md](docs/keyboard.md) for the complete reference.
 
-### Vim keys
+### Key modes
 
-Vim-style navigation ships on by default in the file view (toggle it in
-**Settings → Behavior → Keyboard**): `h`/`j`/`k`/`l` to move, `gg`/`G` for the
-ends, counts like `12j`, `dd` to trash, `yy`/`p` to copy and paste, `a`/`A` for
-a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
-`?` for help. `Ctrl` + `d` / `Ctrl` + `u` move half a page. In grid view
-`h`/`l` walk the row first, then act as parent folder / open at the edges.
+**Settings → Behavior → Keyboard** switches between two key modes:
+
+- **Normal** (default): the classic Loaf shortcuts, and typing a letter filters
+  the current folder.
+- **Vim**: adds `h`/`j`/`k`/`l` motions, `gg`/`G`, counts like `12j`, `dd`,
+  `yy`/`p`, `a`/`A`, `v` for visual mode, `/` to filter, `:` for commands and
+  `?` for help. `Ctrl` + `d` / `Ctrl` + `u` move half a page, so the bookmark
+  shortcut becomes `Ctrl` + `Shift` + `D`, and `Ctrl` + `H` focuses the sidebar
+  (`Ctrl` + `Shift` + `H` still toggles hidden files). In grid view `h`/`l`
+  walk the row first, then act as parent folder / open at the edges.
+
+Both modes share the command palette and the same cheat sheet, which only shows
+the keys for the mode you are in.
 
 ### General
 
@@ -222,7 +229,7 @@ a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
 | :--- | :--- |
 | `Ctrl` + `Z` | Undo last operation |
 | `Ctrl` + `Y` / `Ctrl` + `Shift` + `Z` | Redo last operation |
-| `Ctrl` + `Shift` + `H` | Toggle hidden files |
+| `Ctrl` + `H` | Toggle hidden files |
 | `Ctrl` + `L` | Edit path bar directly |
 | `Alt` + `Left` / `Mouse Back` | Navigate back in history |
 | `Alt` + `Right` / `Mouse Forward` | Navigate forward in history |
@@ -245,7 +252,7 @@ a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
 | `Ctrl` + `F` | Search |
 | `Ctrl` + `N` | New window |
 | `Ctrl` + `Shift` + `N` | New folder |
-| `Ctrl` + `Shift` + `D` | Add the folder to the sidebar |
+| `Ctrl` + `D` | Add the folder to the sidebar |
 | `Ctrl` + `S` / `Ctrl` + `Shift` + `I` | Select by pattern / Invert selection |
 | `Ctrl` + `Shift` + `C` | Copy path |
 | `Alt` + `Enter` | Properties |
@@ -254,7 +261,7 @@ a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
 | `Alt` + `Home` | Home folder |
 | `Ctrl` + `Shift` + `P` | Command palette |
 | `F1` / `?` | Keyboard cheat sheet |
-| `Ctrl` + `B` / `Ctrl` + `H` | Focus the sidebar |
+| `Ctrl` + `B` | Focus the sidebar |
 | `Shift` + `F10` | Context menu for the selection |
 | `Alt` + `1` … `9` | Jump to a tab |
 | `PageUp` / `PageDown` | Move a page at a time |

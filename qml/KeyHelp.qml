@@ -55,13 +55,17 @@ Popup {
             var cmd = commands[i];
             if (cmd.showInHelp === false)
                 continue;
-            if (!cmd.keys && !cmd.vim)
+            var vimOn = typeof theme !== "undefined" && theme && theme.keyMode === "vim";
+            var keyLabel = (typeof window !== "undefined" && window && window.displayKeys)
+                    ? window.displayKeys(cmd.id, cmd.keys || "") : (cmd.keys || "");
+            var vimLabel = vimOn ? (cmd.vim || "") : "";
+            if (!keyLabel && !vimLabel)
                 continue;
             out.push({
                 title: cmd.title,
                 section: cmd.section,
-                keys: cmd.keys || "",
-                vim: cmd.vim || "",
+                keys: keyLabel,
+                vim: vimLabel,
                 showSection: cmd.section !== lastSection
             });
             lastSection = cmd.section;
@@ -130,7 +134,9 @@ Popup {
                 }
 
                 Text {
-                    text: qsTr("Vim motions are active in the file view. Counts work (3j, 5G); press Esc to leave visual mode.")
+                    text: (typeof theme !== "undefined" && theme && theme.keyMode === "vim")
+                          ? qsTr("Vim mode: motions, counts (3j, 5G) and visual mode are active. Esc leaves visual mode.")
+                          : qsTr("Normal mode: classic shortcuts. Switch to Vim in Settings → Behavior → Keyboard for motions.")
                     color: theme.textMuted
                     font.pixelSize: theme.fs(11)
                     wrapMode: Text.WordWrap
