@@ -18,3 +18,10 @@ libc = "0.2"
 
 [build-dependencies]
 cxx-qt-build = "0.10.0"
+
+[profile.release]
+# Smaller text pages and a little less work per frame. The binary is mapped
+# read-only, so trimming it directly lowers resident memory.
+lto = "thin"
+codegen-units = 1
+strip = true

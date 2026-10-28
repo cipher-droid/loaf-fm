@@ -47,12 +47,21 @@ ApplicationWindow {
     // Keyboard: the sidebar can take over the arrow keys, and the vim layer
     // (qml/VimKeys.qml) drives the file view when it is enabled in Settings.
     property bool sidebarFocused: false
+    // Settings and This PC are heavy trees; create them on first visit and
+    // keep them alive afterwards so tab state and scroll survive.
+    property bool settingsLoaded: false
+    property bool pcLoaded: false
+    property bool quickLookLoaded: false
+    property bool paletteLoaded: false
+    property bool helpLoaded: false
 
     readonly property bool isAuxView: activeView === "settings" || activeView === "pc"
     readonly property bool anyModalOpen: inputModal.visible || propsDialog.visible || conflictDialog.visible
-        || passwordModal.visible || quickLook.visible || commandModal.visible || batchRename.visible
+        || passwordModal.visible || (quickLookLoader.item !== null && quickLookLoader.item.opened)
+        || commandModal.visible || batchRename.visible
         || confirmDialog.visible || patternModal.visible || placeEdit.visible || customizePlaces.visible
-        || smbDialog.visible || commandPalette.visible || keyHelp.visible
+        || smbDialog.visible || (paletteLoader.item !== null && paletteLoader.item.visible)
+        || (helpLoader.item !== null && helpLoader.item.visible)
         || window.isEditingPath
     readonly property bool gridKeyboardReady: activeView === "files" && !searchInput.activeFocus
         && !newTabToolbarButton.activeFocus && !newWindowToolbarButton.activeFocus
@@ -150,12 +159,33 @@ ApplicationWindow {
 
     function openPalette(prefix) {
         window.sidebarFocused = false;
-        commandPalette.openPalette(prefix || "");
+        window.paletteLoaded = true;
+        if (paletteLoader.item)
+            paletteLoader.item.openPalette(prefix || "");
     }
 
     function openKeyboardHelp() {
         window.sidebarFocused = false;
-        keyHelp.openHelp();
+        window.helpLoaded = true;
+        if (helpLoader.item)
+            helpLoader.item.openHelp();
+    }
+
+    function showQuickLook(path) {
+        if (!path)
+            return;
+        window.quickLookLoaded = true;
+        if (quickLookLoader.item)
+            quickLookLoader.item.showFor(path);
+    }
+
+    function closeQuickLook() {
+        if (quickLookLoader.item)
+            quickLookLoader.item.close();
+    }
+
+    function isQuickLookOpen() {
+        return quickLookLoader.item !== null && quickLookLoader.item.opened;
     }
 
     function toggleSidebarFocus() {
@@ -517,7 +547,7 @@ ApplicationWindow {
             }
             showFiles();
         } else if (pane.engine.location_kind === "trash") {
-            quickLook.showFor(item.path);
+            window.showQuickLook(item.path);
         } else if (theme.browseArchives && core.is_archive_file(item.path)) {
             pane.engine.set_path("archive://" + item.path + "#");
         } else {
@@ -614,13 +644,13 @@ ApplicationWindow {
     }
 
     function toggleQuickLook() {
-        if (quickLook.visible) {
-            quickLook.close();
+        if (window.isQuickLookOpen()) {
+            window.closeQuickLook();
             return;
         }
         var paths = selectedPaths();
         if (paths.length > 0)
-            quickLook.showFor(activePane.cursorPath || paths[paths.length - 1]);
+            window.showQuickLook(activePane.cursorPath || paths[paths.length - 1]);
     }
     function saveCurrentTab() {
         var t = tabs[currentTab];
@@ -958,7 +988,7 @@ ApplicationWindow {
                 window.activePane.startRename();
         }
     }
-    Shortcut { sequence: "Space"; enabled: quickLook.visible || window.gridKeyboardReady; onActivated: window.toggleQuickLook() }
+    Shortcut { sequence: "Space"; enabled: window.isQuickLookOpen() || window.gridKeyboardReady; onActivated: window.toggleQuickLook() }
     Shortcut { sequence: "Delete"; enabled: window.gridKeyboardReady; onActivated: window.trashSelection() }
     Shortcut { sequence: "Shift+Delete"; enabled: window.gridKeyboardReady; onActivated: window.deleteSelection() }
     Shortcut {
@@ -1228,8 +1258,6 @@ ApplicationWindow {
 
     VimKeys { id: vimKeys }
 
-    FontLoader { source: "qrc:/loaf/fonts/Phosphor.ttf" }
-    FontLoader { source: "qrc:/loaf/fonts/Phosphor-Bold.ttf" }
 
     // Decorative background blobs (skipped in low-power mode).
     Item {
@@ -1249,15 +1277,32 @@ ApplicationWindow {
     }
 
     // The settings tab is part of the URL: settings://behavior and friends.
+    onActiveViewChanged: {
+        if (activeView === "settings")
+            settingsLoaded = true;
+        else if (activeView === "pc")
+            pcLoaded = true;
+    }
+
+    function settingsTabIndex() {
+        return settingsLoader.item ? settingsLoader.item.activeTab : 0;
+    }
+
+    function setSettingsTab(index) {
+        window.settingsLoaded = true;
+        if (settingsLoader.item)
+            settingsLoader.item.activeTab = index;
+    }
+
     function settingsUrl() {
         var slugs = ["interface", "behavior", "accessibility", "experimental", "about", "share", "network"];
-        return "settings://" + (slugs[settingsView.activeTab] || slugs[0]);
+        return "settings://" + (slugs[settingsTabIndex()] || slugs[0]);
     }
 
     function settingsTabName() {
         var names = [qsTr("Interface"), qsTr("Behavior"), qsTr("Accessibility"),
                      qsTr("Experimental"), qsTr("About Loaf"), qsTr("Share"), qsTr("Network")];
-        return names[settingsView.activeTab] || names[0];
+        return names[settingsTabIndex()] || names[0];
     }
 
     function startEditingPath() {
@@ -1282,13 +1327,13 @@ ApplicationWindow {
         } else if (raw === "settings" || raw.indexOf("settings://") === 0) {
             window.activeView = "settings";
             window.markCurrentTab("settings", qsTr("Settings"));
-            if (raw === "settings://behavior") settingsView.activeTab = 1;
-            else if (raw === "settings://accessibility") settingsView.activeTab = 2;
-            else if (raw === "settings://experimental") settingsView.activeTab = 3;
-            else if (raw === "settings://about") settingsView.activeTab = 4;
-            else if (raw === "settings://share") settingsView.activeTab = 5;
-            else if (raw === "settings://network") settingsView.activeTab = 6;
-            else settingsView.activeTab = 0;
+            if (raw === "settings://behavior") window.setSettingsTab(1);
+            else if (raw === "settings://accessibility") window.setSettingsTab(2);
+            else if (raw === "settings://experimental") window.setSettingsTab(3);
+            else if (raw === "settings://about") window.setSettingsTab(4);
+            else if (raw === "settings://share") window.setSettingsTab(5);
+            else if (raw === "settings://network") window.setSettingsTab(6);
+            else window.setSettingsTab(0);
         } else {
             showFiles();
             engine.set_path(raw);
@@ -2187,11 +2232,15 @@ ApplicationWindow {
                         opacity: window.activeView === "settings" ? 1.0 : 0.0
                         Behavior on opacity { enabled: theme.animate; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-                        SettingsView {
-                            id: settingsView
+                        Loader {
+                            id: settingsLoader
                             anchors.fill: parent
                             anchors.margins: 22
-                            searchQuery: window.activeView === "settings" ? searchInput.text : ""
+                            active: window.settingsLoaded
+                            asynchronous: false
+                            sourceComponent: SettingsView {
+                                searchQuery: window.activeView === "settings" ? searchInput.text : ""
+                            }
                         }
                     }
 
@@ -2205,10 +2254,13 @@ ApplicationWindow {
                         opacity: window.activeView === "pc" ? 1.0 : 0.0
                         Behavior on opacity { enabled: theme.animate; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-                        PCView {
-                            id: pcView
+                        Loader {
+                            id: pcLoader
                             anchors.fill: parent
                             anchors.margins: 22
+                            active: window.pcLoaded
+                            asynchronous: false
+                            sourceComponent: PCView {}
                         }
                     }
                 }
@@ -2546,7 +2598,7 @@ ApplicationWindow {
 
         if (kind === "trash") {
             m.push({ text: qsTr("Restore"), icon: "arrow-counter-clockwise", action: function() { core.restore_items(JSON.stringify(paths)); pane.clearSelection(); } });
-            m.push({ text: qsTr("Preview"), icon: "eye", shortcut: "Space", action: function() { quickLook.showFor(item.path); } });
+            m.push({ text: qsTr("Preview"), icon: "eye", shortcut: "Space", action: function() { window.showQuickLook(item.path); } });
             m.push({ text: qsTr("Delete Permanently"), icon: "trash", danger: true, separatorBefore: true, shortcut: "Del", action: function() { window.deleteSelection(); } });
             m.push({ text: qsTr("Properties"), icon: "info", separatorBefore: true, action: function() { window.showProperties(paths); } });
             if (m.length === 0)
@@ -2581,7 +2633,7 @@ ApplicationWindow {
                 m.push({ text: qsTr("Extract to Folder"), icon: "folder-plus", itemKey: "extract", action: function() { core.extract(item.path, true, ""); } });
             }
         }
-        m.push({ text: qsTr("Quick Look"), icon: "eye", shortcut: "Space", itemKey: "quick_look", action: function() { quickLook.showFor(item.path); } });
+        m.push({ text: qsTr("Quick Look"), icon: "eye", shortcut: "Space", itemKey: "quick_look", action: function() { window.showQuickLook(item.path); } });
         if (!inArchive) {
             var termDir = item.is_dir ? item.path : (item.parent_path || pane.engine.current_path);
             m.push({ text: qsTr("Open in Terminal"), icon: "terminal", itemKey: "terminal", action: function() { core.open_terminal(termDir); } });
@@ -3063,15 +3115,28 @@ ApplicationWindow {
         LoafSwitch { label: qsTr("Show Hidden Files"); checked: window.showHidden; onToggled: window.toggleShowHidden() }
         LoafSwitch { label: qsTr("Split View (F3)"); checked: window.splitView && window.activeView === "files"; onToggled: window.toggleSplit() }
     }
-    QuickLook { id: quickLook }
-    CommandPalette {
-        id: commandPalette
-        commands: window.commands
-        onTriggered: function(commandId) { window.executeCommand(commandId, 0, false); }
+    Loader {
+        id: quickLookLoader
+        active: window.quickLookLoaded
+        asynchronous: false
+        sourceComponent: QuickLook {}
     }
-    KeyHelp {
-        id: keyHelp
-        commands: window.commands
+    Loader {
+        id: paletteLoader
+        active: window.paletteLoaded
+        asynchronous: false
+        sourceComponent: CommandPalette {
+            commands: window.commands
+            onTriggered: function(commandId) { window.executeCommand(commandId, 0, false); }
+        }
+    }
+    Loader {
+        id: helpLoader
+        active: window.helpLoaded
+        asynchronous: false
+        sourceComponent: KeyHelp {
+            commands: window.commands
+        }
     }
     PropertiesDialog { id: propsDialog }
     BatchRenameDialog { id: batchRename }

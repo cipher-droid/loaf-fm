@@ -103,11 +103,13 @@ Item {
     readonly property bool vimKeys: keyMode === "vim"
 
     FontLoader { id: fontReg; source: "qrc:/loaf/fonts/Phosphor.ttf" }
-    FontLoader { id: fontBold; source: "qrc:/loaf/fonts/Phosphor-Bold.ttf" }
-    FontLoader { id: fontFill; source: "qrc:/loaf/fonts/Phosphor-Fill.ttf" }
-    FontLoader { id: fontDuotone; source: "qrc:/loaf/fonts/Phosphor-Duotone.ttf" }
-    FontLoader { id: fontLight; source: "qrc:/loaf/fonts/Phosphor-Light.ttf" }
-    FontLoader { id: fontThin; source: "qrc:/loaf/fonts/Phosphor-Thin.ttf" }
+    // Only the selected icon weight is loaded. Keeping five extra typefaces
+    // resident costs a few MB of font data and glyph caches for nothing.
+    FontLoader { id: fontBold; source: phosphorWeight === "bold" ? "qrc:/loaf/fonts/Phosphor-Bold.ttf" : "" }
+    FontLoader { id: fontFill; source: phosphorWeight === "fill" ? "qrc:/loaf/fonts/Phosphor-Fill.ttf" : "" }
+    FontLoader { id: fontDuotone; source: phosphorWeight === "duotone" ? "qrc:/loaf/fonts/Phosphor-Duotone.ttf" : "" }
+    FontLoader { id: fontLight; source: phosphorWeight === "light" ? "qrc:/loaf/fonts/Phosphor-Light.ttf" : "" }
+    FontLoader { id: fontThin; source: phosphorWeight === "thin" ? "qrc:/loaf/fonts/Phosphor-Thin.ttf" : "" }
 
     function getFontFamily() {
         switch (phosphorWeight) {
