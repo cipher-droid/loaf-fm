@@ -2238,9 +2238,10 @@ ApplicationWindow {
                             anchors.margins: 22
                             active: window.settingsLoaded
                             asynchronous: false
-                            sourceComponent: SettingsView {
-                                searchQuery: window.activeView === "settings" ? searchInput.text : ""
-                            }
+                            source: active ? "SettingsView.qml" : ""
+                            onLoaded: item.searchQuery = Qt.binding(function() {
+                                return window.activeView === "settings" ? searchInput.text : "";
+                            })
                         }
                     }
 
@@ -2260,7 +2261,7 @@ ApplicationWindow {
                             anchors.margins: 22
                             active: window.pcLoaded
                             asynchronous: false
-                            sourceComponent: PCView {}
+                            source: active ? "PCView.qml" : ""
                         }
                     }
                 }
@@ -3119,24 +3120,24 @@ ApplicationWindow {
         id: quickLookLoader
         active: window.quickLookLoaded
         asynchronous: false
-        sourceComponent: QuickLook {}
+        source: active ? "QuickLook.qml" : ""
     }
     Loader {
         id: paletteLoader
         active: window.paletteLoaded
         asynchronous: false
-        sourceComponent: CommandPalette {
-            commands: window.commands
-            onTriggered: function(commandId) { window.executeCommand(commandId, 0, false); }
+        source: active ? "CommandPalette.qml" : ""
+        onLoaded: {
+            item.commands = Qt.binding(function() { return window.commands; });
+            item.triggered.connect(function(commandId) { window.executeCommand(commandId, 0, false); });
         }
     }
     Loader {
         id: helpLoader
         active: window.helpLoaded
         asynchronous: false
-        sourceComponent: KeyHelp {
-            commands: window.commands
-        }
+        source: active ? "KeyHelp.qml" : ""
+        onLoaded: item.commands = Qt.binding(function() { return window.commands; });
     }
     PropertiesDialog { id: propsDialog }
     BatchRenameDialog { id: batchRename }
