@@ -81,6 +81,37 @@ ApplicationWindow {
         activePane.ensureVisible(row);
     }
 
+    // Grid columns: h/l walk the row first and only leave it at the edges,
+    // where h becomes "parent folder" and l becomes "open".
+    function moveGridColumn(delta) {
+        var pane = activePane;
+        if (!pane || pane.isList())
+            return false;
+        var index = engine.row_of(pane.cursorPath);
+        if (index < 0)
+            index = 0;
+        var columns = Math.max(1, pane.cols());
+        var column = index % columns;
+        if (delta < 0 && column === 0)
+            return false;
+        if (delta > 0 && (column === columns - 1 || index + 1 >= engine.item_count))
+            return false;
+        window.keyboardNavActive = true;
+        pane.selectRow(index + delta, false, false);
+        pane.ensureVisible(index + delta);
+        return true;
+    }
+
+    function navLeft() {
+        if (!moveGridColumn(-1))
+            engine.navigate_up();
+    }
+
+    function navRight() {
+        if (!moveGridColumn(1))
+            activePane.openSelected();
+    }
+
     function movePage(direction, extend) {
         var rows = Math.max(1, Math.round(activePane.pageRows() / 2));
         moveSelectionBy(0, direction * rows, extend);
@@ -192,9 +223,13 @@ ApplicationWindow {
           run: function(n, extend) { moveSelectionBy(0, n || 1, extend); } },
         { id: "nav.up", section: qsTr("Navigation"), title: qsTr("Move up"), keys: "↑", vim: "k",
           run: function(n, extend) { moveSelectionBy(0, -(n || 1), extend); } },
-        { id: "nav.parent", section: qsTr("Navigation"), title: qsTr("Go to parent folder"), keys: "Alt+↑", vim: "h",
+        { id: "nav.left", section: qsTr("Navigation"), title: qsTr("Move left in the grid"), vim: "h",
+          run: function() { navLeft(); } },
+        { id: "nav.right", section: qsTr("Navigation"), title: qsTr("Move right in the grid"), vim: "l",
+          run: function() { navRight(); } },
+        { id: "nav.parent", section: qsTr("Navigation"), title: qsTr("Go to parent folder"), keys: "Alt+↑", vim: "h at the left edge",
           run: function() { engine.navigate_up(); } },
-        { id: "nav.open", section: qsTr("Navigation"), title: qsTr("Open selection"), keys: "Enter", vim: "l / o",
+        { id: "nav.open", section: qsTr("Navigation"), title: qsTr("Open selection"), keys: "Enter", vim: "l at the right edge / o",
           run: function() { activePane.openSelected(); } },
         { id: "nav.back", section: qsTr("Navigation"), title: qsTr("Go back"), keys: "Alt+←", vim: "H",
           enabled: function() { return engine.can_go_back; },
@@ -243,11 +278,11 @@ ApplicationWindow {
           run: function() { if (pane1Loader.item) setActivePane(activePane === pane0 ? pane1Loader.item : pane0); } },
         { id: "view.sidebarToggle", section: qsTr("View"), title: qsTr("Expand / collapse sidebar"), keys: "F9",
           run: function() { sidebar.expanded = !sidebar.expanded; } },
-        { id: "view.sidebarFocus", section: qsTr("View"), title: qsTr("Focus sidebar"), keys: "Ctrl+B",
+        { id: "view.sidebarFocus", section: qsTr("View"), title: qsTr("Focus sidebar"), keys: "Ctrl+B / Ctrl+H",
           run: function() { toggleSidebarFocus(); } },
         { id: "view.menu", section: qsTr("View"), title: qsTr("View, sort and zoom options…"),
           run: function() { openViewMenu(); } },
-        { id: "view.hidden", section: qsTr("View"), title: qsTr("Toggle hidden files"), keys: "Ctrl+H", vim: ".",
+        { id: "view.hidden", section: qsTr("View"), title: qsTr("Toggle hidden files"), keys: "Ctrl+Shift+H", vim: ".",
           run: function() { toggleShowHidden(); } },
         { id: "view.zoomIn", section: qsTr("View"), title: qsTr("Bigger icons"), keys: "Ctrl++",
           run: function() { theme.stepZoom(1); } },
@@ -896,7 +931,7 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+A"; enabled: window.gridKeyboardReady; onActivated: window.activePane.selectAll() }
     Shortcut { sequence: "Ctrl+Shift+I"; enabled: window.gridKeyboardReady; onActivated: window.activePane.invertSelection() }
     Shortcut { sequence: "Ctrl+S"; enabled: window.gridKeyboardReady; onActivated: patternModal.openFor() }
-    Shortcut { sequence: "Ctrl+H"; onActivated: engine.toggle_show_hidden() }
+    Shortcut { sequence: "Ctrl+Shift+H"; onActivated: engine.toggle_show_hidden() }
     Shortcut { sequences: ["Ctrl+L", "Alt+D"]; onActivated: window.startEditingPath() }
     Shortcut { sequence: "Ctrl+F"; onActivated: { window.showFiles(); searchInput.forceActiveFocus(); searchInput.selectAll(); } }
     Shortcut {
@@ -952,6 +987,7 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Shift+C"; enabled: window.gridKeyboardReady; onActivated: window.copyPathOfSelection() }
     Shortcut { sequence: "Ctrl+Shift+P"; onActivated: window.openPalette("") }
     Shortcut { sequence: "Ctrl+B"; onActivated: window.toggleSidebarFocus() }
+    Shortcut { sequence: "Ctrl+H"; onActivated: window.toggleSidebarFocus() }
     Shortcut { sequence: "Shift+F10"; enabled: window.gridKeyboardReady; onActivated: window.openContextMenuFromKeyboard() }
     Shortcut { sequence: "F1"; onActivated: window.openKeyboardHelp() }
     Shortcut {

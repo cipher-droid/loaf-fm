@@ -86,7 +86,7 @@ ColumnLayout {
             visible: root.matchHidden
             icon: "eye"
             title: qsTr("Show hidden files")
-            subtitle: qsTr("Display files and folders prefixed with a dot (Ctrl+H)")
+            subtitle: qsTr("Display files and folders prefixed with a dot (Ctrl+Shift+H)")
 
             LoafSwitch {
                 id: hiddenSwitch

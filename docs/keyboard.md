@@ -33,8 +33,9 @@ the current folder again.
 | Key | Action |
 | :--- | :--- |
 | `j` / `k` | Down / up |
-| `h` | Parent folder |
-| `l`, `o`, `Enter` | Open the selection |
+| `h` | Move left in the grid; at the left edge, parent folder |
+| `l` | Move right in the grid; at the right edge, open the selection |
+| `o`, `Enter` | Open the selection |
 | `H` / `L` | Back / forward in history |
 | `gg`, `0` | First item |
 | `G` | Last item |
@@ -76,7 +77,7 @@ the current folder again.
 | `Alt` + `1` … `9` | Jump to a tab |
 | `s` / `F3` | Toggle split view |
 | `S` | Focus the other pane |
-| `Ctrl` + `B` | Focus the sidebar (`j`/`k`, `Enter`, `Esc`) |
+| `Ctrl` + `B` / `Ctrl` + `H` | Focus the sidebar (`j`/`k`, `Enter`, `Esc`) |
 | `F9` | Expand / collapse the sidebar |
 | `Ctrl` + `1` / `Ctrl` + `2` | Grid / list view |
 | `Ctrl` + `+` / `-` / `0` | Icon size |
@@ -108,6 +109,7 @@ the current folder again.
 | `Ctrl` + `C` / `X` / `V` | Copy / cut / paste |
 | `Ctrl` + `Shift` + `C` | Copy path |
 | `Ctrl` + `Shift` + `D` | Bookmark this folder |
+| `Ctrl` + `Shift` + `H` | Toggle hidden files |
 | `Ctrl` + `Z` / `Ctrl` + `Shift` + `Z` | Undo / redo |
 | `Shift` + `F10` | Context menu for the selection |
 | `Alt` + `Enter` | Properties |

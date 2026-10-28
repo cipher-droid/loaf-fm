@@ -213,7 +213,8 @@ Vim-style navigation ships on by default in the file view (toggle it in
 **Settings → Behavior → Keyboard**): `h`/`j`/`k`/`l` to move, `gg`/`G` for the
 ends, counts like `12j`, `dd` to trash, `yy`/`p` to copy and paste, `a`/`A` for
 a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
-`?` for help. `Ctrl` + `d` / `Ctrl` + `u` move half a page.
+`?` for help. `Ctrl` + `d` / `Ctrl` + `u` move half a page. In grid view
+`h`/`l` walk the row first, then act as parent folder / open at the edges.
 
 ### General
 
@@ -221,7 +222,7 @@ a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
 | :--- | :--- |
 | `Ctrl` + `Z` | Undo last operation |
 | `Ctrl` + `Y` / `Ctrl` + `Shift` + `Z` | Redo last operation |
-| `Ctrl` + `H` | Toggle hidden files |
+| `Ctrl` + `Shift` + `H` | Toggle hidden files |
 | `Ctrl` + `L` | Edit path bar directly |
 | `Alt` + `Left` / `Mouse Back` | Navigate back in history |
 | `Alt` + `Right` / `Mouse Forward` | Navigate forward in history |
@@ -253,7 +254,7 @@ a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
 | `Alt` + `Home` | Home folder |
 | `Ctrl` + `Shift` + `P` | Command palette |
 | `F1` / `?` | Keyboard cheat sheet |
-| `Ctrl` + `B` | Focus the sidebar |
+| `Ctrl` + `B` / `Ctrl` + `H` | Focus the sidebar |
 | `Shift` + `F10` | Context menu for the selection |
 | `Alt` + `1` … `9` | Jump to a tab |
 | `PageUp` / `PageDown` | Move a page at a time |

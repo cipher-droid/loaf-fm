@@ -98,8 +98,8 @@ QtObject {
         switch (t) {
         case "j": return { action: "nav.down", count: n || 1, extend: visual };
         case "k": return { action: "nav.up", count: n || 1, extend: visual };
-        case "h": return { action: "nav.parent" };
-        case "l": return { action: "nav.open" };
+        case "h": return { action: "nav.left" };
+        case "l": return { action: "nav.right" };
         case "H": return { action: "nav.back" };
         case "L": return { action: "nav.forward" };
         case "G": return n > 0 ? { action: "nav.row", count: n } : { action: "nav.bottom" };
