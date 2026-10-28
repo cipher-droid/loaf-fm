@@ -44,11 +44,15 @@ ApplicationWindow {
     // Paths currently cut to the clipboard (dimmed in the views).
     property var cutSet: ({})
 
+    // Keyboard: the sidebar can take over the arrow keys, and the vim layer
+    // (qml/VimKeys.qml) drives the file view when it is enabled in Settings.
+    property bool sidebarFocused: false
+
     readonly property bool isAuxView: activeView === "settings" || activeView === "pc"
     readonly property bool anyModalOpen: inputModal.visible || propsDialog.visible || conflictDialog.visible
         || passwordModal.visible || quickLook.visible || commandModal.visible || batchRename.visible
         || confirmDialog.visible || patternModal.visible || placeEdit.visible || customizePlaces.visible
-        || smbDialog.visible
+        || smbDialog.visible || commandPalette.visible || keyHelp.visible
         || window.isEditingPath
     readonly property bool gridKeyboardReady: activeView === "files" && !searchInput.activeFocus
         && !newTabToolbarButton.activeFocus && !newWindowToolbarButton.activeFocus
@@ -58,6 +62,316 @@ ApplicationWindow {
     function toast(kind, text) {
         toastItem.show(kind, text);
     }
+
+    // ---- Keyboard commands -------------------------------------------------
+    // One table drives the vim layer, the command palette and the help sheet,
+    // so a binding is defined (and documented) exactly once.
+
+    function moveSelectionBy(dx, dy, extend) {
+        window.keyboardNavActive = true;
+        activePane.moveSelection(dx, dy, !!extend);
+    }
+
+    function selectRowByIndex(index, extend) {
+        if (engine.item_count === 0)
+            return;
+        var row = Math.max(0, Math.min(engine.item_count - 1, index));
+        window.keyboardNavActive = true;
+        activePane.selectRow(row, false, !!extend);
+        activePane.ensureVisible(row);
+    }
+
+    function movePage(direction, extend) {
+        var rows = Math.max(1, Math.round(activePane.pageRows() / 2));
+        moveSelectionBy(0, direction * rows, extend);
+    }
+
+    function openSelectionInNewTab() {
+        var items = activePane.selectedItems();
+        if (items.length === 0)
+            return;
+        for (var i = 0; i < items.length; ++i) {
+            if (items[i].is_dir)
+                newTab(items[i].path);
+            else
+                core.open_item(items[i].path);
+        }
+    }
+
+    function goUserDir(key) {
+        var path = core.user_dir(key);
+        showFiles();
+        searchInput.text = "";
+        if (path.length > 0)
+            engine.set_path(path);
+    }
+
+    function goPlace(kind) {
+        showFiles();
+        searchInput.text = "";
+        if (kind === "trash")
+            engine.open_trash();
+        else if (kind === "recent")
+            engine.open_recent();
+        else if (kind === "starred")
+            engine.open_starred();
+    }
+
+    function openPalette(prefix) {
+        window.sidebarFocused = false;
+        commandPalette.openPalette(prefix || "");
+    }
+
+    function openKeyboardHelp() {
+        window.sidebarFocused = false;
+        keyHelp.openHelp();
+    }
+
+    function toggleSidebarFocus() {
+        if (window.sidebarFocused) {
+            window.sidebarFocused = false;
+            globalKeyHandler.forceActiveFocus();
+            return;
+        }
+        showFiles();
+        sidebar.expanded = true;
+        window.sidebarFocused = true;
+        sidebar.kbReset();
+    }
+
+    function openContextMenuFromKeyboard() {
+        var pane = activePane;
+        if (!pane)
+            return;
+        var point = pane.mapToItem(window.contentItem, pane.width / 2, pane.height / 3);
+        if (engine.item_count === 0) {
+            openEmptyMenu(pane, point.x, point.y);
+            return;
+        }
+        var row = pane.cursorPath ? engine.row_of(pane.cursorPath) : 0;
+        if (row < 0)
+            row = 0;
+        openItemMenu(pane, row, point.x, point.y);
+    }
+
+    function openViewMenu() {
+        if (viewMenuPopup.visible) {
+            viewMenuPopup.close();
+            return;
+        }
+        viewMenuPopup.openAt(Math.max(20, Math.round(window.width * 0.45)), 96);
+    }
+
+    function executeCommand(id, count, extend) {
+        // Visual-mode markers are state, not commands, but they travel through
+        // the same path so the vim layer can stay dumb.
+        if (id === "visual.start") {
+            if (activePane.selectedCount === 0 && engine.item_count > 0)
+                selectRowByIndex(0, false);
+            window.keyboardNavActive = true;
+            return true;
+        }
+        if (id === "visual.stop")
+            return true;
+        for (var i = 0; i < commands.length; ++i) {
+            var cmd = commands[i];
+            if (cmd.id !== id)
+                continue;
+            if (cmd.enabled && !cmd.enabled())
+                return false;
+            if (cmd.run)
+                cmd.run(count || 0, !!extend);
+            return true;
+        }
+        return false;
+    }
+
+    property var commands: [
+        // Navigation
+        { id: "nav.down", section: qsTr("Navigation"), title: qsTr("Move down"), keys: "↓", vim: "j",
+          run: function(n, extend) { moveSelectionBy(0, n || 1, extend); } },
+        { id: "nav.up", section: qsTr("Navigation"), title: qsTr("Move up"), keys: "↑", vim: "k",
+          run: function(n, extend) { moveSelectionBy(0, -(n || 1), extend); } },
+        { id: "nav.parent", section: qsTr("Navigation"), title: qsTr("Go to parent folder"), keys: "Alt+↑", vim: "h",
+          run: function() { engine.navigate_up(); } },
+        { id: "nav.open", section: qsTr("Navigation"), title: qsTr("Open selection"), keys: "Enter", vim: "l / o",
+          run: function() { activePane.openSelected(); } },
+        { id: "nav.back", section: qsTr("Navigation"), title: qsTr("Go back"), keys: "Alt+←", vim: "H",
+          enabled: function() { return engine.can_go_back; },
+          run: function() { engine.go_back(); } },
+        { id: "nav.forward", section: qsTr("Navigation"), title: qsTr("Go forward"), keys: "Alt+→", vim: "L",
+          enabled: function() { return engine.can_go_forward; },
+          run: function() { engine.go_forward(); } },
+        { id: "nav.top", section: qsTr("Navigation"), title: qsTr("Jump to first item"), keys: "Home", vim: "gg",
+          run: function() { selectRowByIndex(0, false); } },
+        { id: "nav.bottom", section: qsTr("Navigation"), title: qsTr("Jump to last item"), keys: "End", vim: "G",
+          run: function() { selectRowByIndex(engine.item_count - 1, false); } },
+        { id: "nav.row", section: qsTr("Navigation"), title: qsTr("Jump to item N"), vim: "NG",
+          run: function(n) { selectRowByIndex((n || 1) - 1, false); } },
+        { id: "nav.halfDown", section: qsTr("Navigation"), title: qsTr("Half page down"), vim: "Ctrl+d",
+          run: function() { movePage(1, false); } },
+        { id: "nav.halfUp", section: qsTr("Navigation"), title: qsTr("Half page up"), vim: "Ctrl+u",
+          run: function() { movePage(-1, false); } },
+        { id: "nav.pageDown", section: qsTr("Navigation"), title: qsTr("Page down"), keys: "PageDown",
+          run: function() { moveSelectionBy(0, activePane.pageRows(), false); } },
+        { id: "nav.pageUp", section: qsTr("Navigation"), title: qsTr("Page up"), keys: "PageUp",
+          run: function() { moveSelectionBy(0, -activePane.pageRows(), false); } },
+
+        // Tabs
+        { id: "tab.new", section: qsTr("Tabs"), title: qsTr("New tab"), keys: "Ctrl+T", vim: "t",
+          run: function() { newTab(engine.location_kind === "dir" ? engine.current_path : ""); } },
+        { id: "tab.close", section: qsTr("Tabs"), title: qsTr("Close tab"), keys: "Ctrl+W",
+          run: function() { closeTab(window.currentTab); } },
+        { id: "tab.next", section: qsTr("Tabs"), title: qsTr("Next tab"), keys: "Ctrl+Tab", vim: "gt",
+          run: function() { switchTab((window.currentTab + 1) % window.tabs.length); } },
+        { id: "tab.prev", section: qsTr("Tabs"), title: qsTr("Previous tab"), keys: "Ctrl+Shift+Tab", vim: "gT",
+          run: function() { switchTab((window.currentTab + window.tabs.length - 1) % window.tabs.length); } },
+        { id: "tab.jump", section: qsTr("Tabs"), title: qsTr("Jump to tab 1–9"), keys: "Alt+1…9", hidden: true,
+          run: function() {} },
+        { id: "tab.openSelection", section: qsTr("Tabs"), title: qsTr("Open selection in new tab"), vim: "O",
+          run: function() { openSelectionInNewTab(); } },
+
+        // View
+        { id: "view.grid", section: qsTr("View"), title: qsTr("Grid view"), keys: "Ctrl+1",
+          run: function() { engine.set_view("grid"); } },
+        { id: "view.list", section: qsTr("View"), title: qsTr("List view"), keys: "Ctrl+2",
+          run: function() { engine.set_view("list"); } },
+        { id: "view.toggleSplit", section: qsTr("View"), title: qsTr("Toggle split view"), keys: "F3", vim: "s",
+          run: function() { toggleSplit(); } },
+        { id: "view.otherPane", section: qsTr("View"), title: qsTr("Focus the other pane"), vim: "S",
+          enabled: function() { return window.splitView; },
+          run: function() { if (pane1Loader.item) setActivePane(activePane === pane0 ? pane1Loader.item : pane0); } },
+        { id: "view.sidebarToggle", section: qsTr("View"), title: qsTr("Expand / collapse sidebar"), keys: "F9",
+          run: function() { sidebar.expanded = !sidebar.expanded; } },
+        { id: "view.sidebarFocus", section: qsTr("View"), title: qsTr("Focus sidebar"), keys: "Ctrl+B",
+          run: function() { toggleSidebarFocus(); } },
+        { id: "view.menu", section: qsTr("View"), title: qsTr("View, sort and zoom options…"),
+          run: function() { openViewMenu(); } },
+        { id: "view.hidden", section: qsTr("View"), title: qsTr("Toggle hidden files"), keys: "Ctrl+H", vim: ".",
+          run: function() { toggleShowHidden(); } },
+        { id: "view.zoomIn", section: qsTr("View"), title: qsTr("Bigger icons"), keys: "Ctrl++",
+          run: function() { theme.stepZoom(1); } },
+        { id: "view.zoomOut", section: qsTr("View"), title: qsTr("Smaller icons"), keys: "Ctrl+-",
+          run: function() { theme.stepZoom(-1); } },
+        { id: "view.zoomReset", section: qsTr("View"), title: qsTr("Reset icon size"), keys: "Ctrl+0",
+          run: function() { theme.zoomIndex = 2; } },
+
+        // Files
+        { id: "files.rename", section: qsTr("Files"), title: qsTr("Rename selection"), keys: "F2", vim: "r",
+          enabled: function() { return activePane.selectedCount > 0; },
+          run: function() {
+              if (window.selectedPaths().length > 1)
+                  batchRename.showFor(activePane.selectedItems());
+              else
+                  activePane.startRename();
+          } },
+        { id: "files.trash", section: qsTr("Files"), title: qsTr("Move selection to trash"), keys: "Delete", vim: "dd",
+          enabled: function() { return activePane.selectedCount > 0; },
+          run: function() { trashSelection(); } },
+        { id: "files.delete", section: qsTr("Files"), title: qsTr("Delete selection permanently"), keys: "Shift+Delete", vim: "D",
+          enabled: function() { return activePane.selectedCount > 0; },
+          run: function() { deleteSelection(); } },
+        { id: "files.copy", section: qsTr("Files"), title: qsTr("Copy selection"), keys: "Ctrl+C", vim: "yy",
+          enabled: function() { return activePane.selectedCount > 0; },
+          run: function() { copySelection(false); } },
+        { id: "files.cut", section: qsTr("Files"), title: qsTr("Cut selection"), keys: "Ctrl+X", vim: "x",
+          enabled: function() { return activePane.selectedCount > 0; },
+          run: function() { copySelection(true); } },
+        { id: "files.paste", section: qsTr("Files"), title: qsTr("Paste here"), keys: "Ctrl+V", vim: "p",
+          enabled: function() { return engine.location_kind === "dir"; },
+          run: function() { pasteInto(engine.current_path); } },
+        { id: "files.copyPath", section: qsTr("Files"), title: qsTr("Copy path of selection"), keys: "Ctrl+Shift+C", vim: "Y",
+          enabled: function() { return activePane.selectedCount > 0; },
+          run: function() { copyPathOfSelection(); } },
+        { id: "files.selectAll", section: qsTr("Files"), title: qsTr("Select all"), keys: "Ctrl+A", vim: "V",
+          run: function() { activePane.selectAll(); } },
+        { id: "files.invert", section: qsTr("Files"), title: qsTr("Invert selection"), keys: "Ctrl+Shift+I",
+          run: function() { activePane.invertSelection(); } },
+        { id: "files.selectPattern", section: qsTr("Files"), title: qsTr("Select by pattern…"), keys: "Ctrl+S",
+          run: function() { patternModal.openFor(); } },
+        { id: "files.newFolder", section: qsTr("Files"), title: qsTr("New folder"), keys: "Ctrl+Shift+N", vim: "a",
+          enabled: function() { return engine.location_kind === "dir"; },
+          run: function() { inputModal.showNewFolder(); } },
+        { id: "files.newFile", section: qsTr("Files"), title: qsTr("New file"), vim: "A",
+          enabled: function() { return engine.location_kind === "dir"; },
+          run: function() { inputModal.showNewFile(); } },
+        { id: "files.quickLook", section: qsTr("Files"), title: qsTr("Quick look"), keys: "Space",
+          run: function() { toggleQuickLook(); } },
+        { id: "files.properties", section: qsTr("Files"), title: qsTr("Properties"), keys: "Alt+Enter",
+          run: function() {
+              var paths = window.selectedPaths();
+              showProperties(paths.length > 0 ? paths : [engine.current_path]);
+          } },
+        { id: "files.bookmark", section: qsTr("Files"), title: qsTr("Bookmark this folder"), keys: "Ctrl+Shift+D", vim: "m",
+          enabled: function() { return engine.location_kind === "dir"; },
+          run: function() { core.add_bookmark(engine.current_path); } },
+        { id: "files.contextMenu", section: qsTr("Files"), title: qsTr("Open context menu"), keys: "Shift+F10",
+          run: function() { openContextMenuFromKeyboard(); } },
+
+        // Go to
+        { id: "go.home", section: qsTr("Go to"), title: qsTr("Home"), keys: "Alt+Home", vim: "gh",
+          run: function() { goUserDir("HOME"); } },
+        { id: "go.pc", section: qsTr("Go to"), title: qsTr("This PC"), vim: "gp",
+          run: function() { openPc(); } },
+        { id: "go.settings", section: qsTr("Go to"), title: qsTr("Settings"), vim: "gs",
+          run: function() { openSettings(); } },
+        { id: "go.recent", section: qsTr("Go to"), title: qsTr("Recent files"), vim: "gr",
+          run: function() { goPlace("recent"); } },
+        { id: "go.trash", section: qsTr("Go to"), title: qsTr("Trash"), vim: "gd",
+          run: function() { goPlace("trash"); } },
+        { id: "go.downloads", section: qsTr("Go to"), title: qsTr("Downloads"),
+          run: function() { goUserDir("DOWNLOAD"); } },
+        { id: "go.documents", section: qsTr("Go to"), title: qsTr("Documents"),
+          run: function() { goUserDir("DOCUMENTS"); } },
+        { id: "go.pictures", section: qsTr("Go to"), title: qsTr("Pictures"),
+          run: function() { goUserDir("PICTURES"); } },
+        { id: "go.music", section: qsTr("Go to"), title: qsTr("Music"),
+          run: function() { goUserDir("MUSIC"); } },
+        { id: "go.videos", section: qsTr("Go to"), title: qsTr("Videos"),
+          run: function() { goUserDir("VIDEOS"); } },
+        { id: "go.desktop", section: qsTr("Go to"), title: qsTr("Desktop"),
+          run: function() { goUserDir("DESKTOP"); } },
+
+        // Search
+        { id: "search.focus", section: qsTr("Search"), title: qsTr("Filter this folder"), keys: "Ctrl+F", vim: "/",
+          run: function() {
+              showFiles();
+              searchScope = "folder";
+              searchInput.forceActiveFocus();
+              searchInput.selectAll();
+          } },
+        { id: "search.global", section: qsTr("Search"), title: qsTr("Search everywhere"), vim: "g/",
+          run: function() {
+              showFiles();
+              searchScope = "home";
+              searchInput.forceActiveFocus();
+              searchInput.selectAll();
+              if (searchInput.text.trim().length > 0)
+                  engine.search(searchInput.text.trim(), "home", theme.searchContents);
+          } },
+        { id: "path.edit", section: qsTr("Search"), title: qsTr("Edit location"), keys: "Ctrl+L", vim: "gf",
+          run: function() { startEditingPath(); } },
+
+        // Edit
+        { id: "edit.undo", section: qsTr("Edit"), title: qsTr("Undo"), keys: "Ctrl+Z", vim: "u",
+          enabled: function() { return core.can_undo; },
+          run: function() { core.undo(); } },
+        { id: "edit.redo", section: qsTr("Edit"), title: qsTr("Redo"), keys: "Ctrl+Shift+Z",
+          enabled: function() { return core.can_redo; },
+          run: function() { core.redo(); } },
+
+        // Help
+        { id: "palette.open", section: qsTr("Help"), title: qsTr("Command palette"), keys: "Ctrl+Shift+P", vim: ":",
+          run: function() { openPalette(""); } },
+        { id: "help.open", section: qsTr("Help"), title: qsTr("Keyboard shortcuts and vim keys"), keys: "F1", vim: "?",
+          run: function() { openKeyboardHelp(); } },
+
+        // Window
+        { id: "window.new", section: qsTr("Window"), title: qsTr("New window"), keys: "Ctrl+N",
+          run: function() { core.open_new_window(engine.location_kind === "dir" ? engine.current_path : ""); } },
+        { id: "window.close", section: qsTr("Window"), title: qsTr("Close window"), keys: "Ctrl+Q",
+          run: function() { window.close(); } }
+    ]
 
     function openSmbEditor(profile) {
         var p = profile || {};
@@ -634,8 +948,12 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+0"; onActivated: theme.zoomIndex = 2 }
     Shortcut { sequence: "Ctrl+1"; onActivated: engine.set_view("grid") }
     Shortcut { sequence: "Ctrl+2"; onActivated: engine.set_view("list") }
-    Shortcut { sequence: "Ctrl+D"; enabled: engine.location_kind === "dir"; onActivated: core.add_bookmark(engine.current_path) }
+    Shortcut { sequence: "Ctrl+Shift+D"; enabled: engine.location_kind === "dir"; onActivated: core.add_bookmark(engine.current_path) }
     Shortcut { sequence: "Ctrl+Shift+C"; enabled: window.gridKeyboardReady; onActivated: window.copyPathOfSelection() }
+    Shortcut { sequence: "Ctrl+Shift+P"; onActivated: window.openPalette("") }
+    Shortcut { sequence: "Ctrl+B"; onActivated: window.toggleSidebarFocus() }
+    Shortcut { sequence: "Shift+F10"; enabled: window.gridKeyboardReady; onActivated: window.openContextMenuFromKeyboard() }
+    Shortcut { sequence: "F1"; onActivated: window.openKeyboardHelp() }
     Shortcut {
         sequences: ["Alt+Return", "Alt+Enter"]
         enabled: window.gridKeyboardReady
@@ -669,7 +987,11 @@ ApplicationWindow {
             if (window.anyModalOpen)
                 return;
             if (event.key === Qt.Key_Escape) {
-                if (window.activePane.selectedCount > 0) {
+                if (window.sidebarFocused) {
+                    window.sidebarFocused = false;
+                } else if (vimKeys.visual) {
+                    vimKeys.visual = false;
+                } else if (window.activePane.selectedCount > 0) {
                     window.activePane.clearSelection();
                 } else if (engine.is_searching_everywhere) {
                     engine.clear_search();
@@ -677,11 +999,73 @@ ApplicationWindow {
                 } else if (window.isAuxView) {
                     window.showFiles();
                 }
+                vimKeys.reset();
                 window.keyboardNavActive = false;
                 event.accepted = true;
                 return;
             }
+
+            // The sidebar behaves like a list while it owns the keyboard.
+            if (window.sidebarFocused) {
+                var letter = (event.text || "").length === 1 ? event.text : "";
+                if (event.key === Qt.Key_Down || letter === "j") {
+                    sidebar.kbMove(1);
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Up || letter === "k") {
+                    sidebar.kbMove(-1);
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Home) {
+                    sidebar.kbMove(-9999);
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_End) {
+                    sidebar.kbMove(9999);
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || letter === "l" || letter === "o") {
+                    window.sidebarFocused = false;
+                    sidebar.kbActivate();
+                    globalKeyHandler.forceActiveFocus();
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Left || letter === "h" || event.key === Qt.Key_Tab) {
+                    window.sidebarFocused = false;
+                    globalKeyHandler.forceActiveFocus();
+                    event.accepted = true;
+                    return;
+                }
+                return;
+            }
+
+            // Alt+1..9 jumps to a tab from anywhere in the file view.
+            if ((event.modifiers & Qt.AltModifier) && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
+                var tabIndex = event.key - Qt.Key_1;
+                if (tabIndex < window.tabs.length) {
+                    window.switchTab(tabIndex);
+                    event.accepted = true;
+                }
+                return;
+            }
+
             if (window.gridKeyboardReady) {
+                // The vim layer runs first; it only claims keys it understands.
+                if (theme.vimKeys) {
+                    var motion = vimKeys.feed(event.key, event.text, event.modifiers);
+                    if (motion) {
+                        if (!motion.pending)
+                            window.executeCommand(motion.action, motion.count || 0, !!motion.extend);
+                        event.accepted = true;
+                        return;
+                    }
+                }
+
                 var shift = !!(event.modifiers & Qt.ShiftModifier);
                 var pane = window.activePane;
                 switch (event.key) {
@@ -695,6 +1079,10 @@ ApplicationWindow {
                 case Qt.Key_Right:
                     if (!pane.isList()) { window.keyboardNavActive = true; pane.moveSelection(1, 0, shift); event.accepted = true; return; }
                     break;
+                case Qt.Key_PageDown:
+                    window.keyboardNavActive = true; pane.moveSelection(0, pane.pageRows(), shift); event.accepted = true; return;
+                case Qt.Key_PageUp:
+                    window.keyboardNavActive = true; pane.moveSelection(0, -pane.pageRows(), shift); event.accepted = true; return;
                 case Qt.Key_Home:
                     window.keyboardNavActive = true; pane.selectRow(0, false, shift); pane.ensureVisible(0); event.accepted = true; return;
                 case Qt.Key_End:
@@ -708,8 +1096,9 @@ ApplicationWindow {
                     pane.openSelected(); event.accepted = true; return;
                 }
             }
-            // Type to filter: printable keys go to the search box.
-            if (!searchInput.activeFocus && window.activeView === "files"
+            // Type to filter: only when vim keys are off, because otherwise the
+            // vim layer owns every printable key. Press "/" to filter.
+            if (!theme.vimKeys && !searchInput.activeFocus && window.activeView === "files"
                     && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
                     && event.text.length > 0 && event.text.charCodeAt(0) > 32 && event.key !== Qt.Key_Delete) {
                 searchInput.forceActiveFocus();
@@ -775,6 +1164,8 @@ ApplicationWindow {
         // Archives open like folders on double click.
         property bool browseArchives: true
     }
+
+    VimKeys { id: vimKeys }
 
     FontLoader { source: "qrc:/loaf/fonts/Phosphor.ttf" }
     FontLoader { source: "qrc:/loaf/fonts/Phosphor-Bold.ttf" }
@@ -1437,6 +1828,7 @@ ApplicationWindow {
                 id: sidebar
                 Layout.fillHeight: true
                 Layout.preferredWidth: implicitWidth
+                keyboardActive: window.sidebarFocused
                 Behavior on Layout.preferredWidth { enabled: theme.animate; SpringAnimation { spring: 3.5; damping: 0.35 } }
                 activeId: {
                     if (window.activeView === "settings")
@@ -2247,7 +2639,7 @@ ApplicationWindow {
         if (kind === "dir") {
             m.push({ text: qsTr("Open Terminal Here"), icon: "terminal", itemKey: "terminal", separatorBefore: true, action: function() { core.open_terminal(e.current_path); } });
             var marked = core.is_bookmarked(e.current_path);
-            m.push({ text: marked ? qsTr("Remove from Sidebar") : qsTr("Add to Sidebar"), icon: "push-pin", shortcut: "Ctrl+D", itemKey: "pin", action: function() {
+            m.push({ text: marked ? qsTr("Remove from Sidebar") : qsTr("Add to Sidebar"), icon: "push-pin", shortcut: "Ctrl+Shift+D", itemKey: "pin", action: function() {
                 if (marked)
                     core.remove_bookmark(e.current_path);
                 else
@@ -2611,6 +3003,15 @@ ApplicationWindow {
         LoafSwitch { label: qsTr("Split View (F3)"); checked: window.splitView && window.activeView === "files"; onToggled: window.toggleSplit() }
     }
     QuickLook { id: quickLook }
+    CommandPalette {
+        id: commandPalette
+        commands: window.commands
+        onTriggered: function(commandId) { window.executeCommand(commandId, 0, false); }
+    }
+    KeyHelp {
+        id: keyHelp
+        commands: window.commands
+    }
     PropertiesDialog { id: propsDialog }
     BatchRenameDialog { id: batchRename }
     ConflictDialog { id: conflictDialog }
@@ -2863,6 +3264,8 @@ ApplicationWindow {
                 Qt.callLater(function() { confirmDialog.ask(next[0], next[1], next[2], next[3]); });
             }
         }
+        // Enter/Space confirm the dialog without reaching for the mouse.
+        onOpened: confirmActionButton.forceActiveFocus()
         Text {
             Layout.fillWidth: true
             text: confirmDialog.message
@@ -2875,8 +3278,10 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             LoafButton { text: qsTr("Cancel"); variant: "text"; onClicked: confirmDialog.close() }
             LoafButton {
+                id: confirmActionButton
                 text: confirmDialog.actionText
                 variant: "danger"
+                keyboardFocusable: true
                 onClicked: {
                     var fn = confirmDialog.onConfirm;
                     confirmDialog.close();
@@ -3091,7 +3496,7 @@ ApplicationWindow {
             { id: "extract", name: qsTr("Extract"), icon: "archive", shortcut: "" },
             { id: "browse_archive", name: qsTr("Browse Archive"), icon: "folder-open", shortcut: "" },
             { id: "star", name: qsTr("Star / Unstar"), icon: "star", shortcut: "" },
-            { id: "pin", name: qsTr("Add / Remove from Sidebar"), icon: "push-pin", shortcut: "Ctrl+D" },
+            { id: "pin", name: qsTr("Add / Remove from Sidebar"), icon: "push-pin", shortcut: "Ctrl+Shift+D" },
             { id: "scripts", name: qsTr("Scripts"), icon: "scroll", shortcut: "" },
             { id: "admin", name: qsTr("Open as Administrator"), icon: "shield-check", shortcut: "" },
             { id: "delete", name: qsTr("Move to Trash"), icon: "trash", shortcut: "Del" },

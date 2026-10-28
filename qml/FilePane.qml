@@ -235,6 +235,15 @@ Item {
             gridView.positionViewAtIndex(row, GridView.Contain);
     }
 
+    // Rows that fit in the viewport; the vim layer uses this for Ctrl+d / Ctrl+u.
+    function pageRows() {
+        if (isList()) {
+            var rowHeight = Math.round(38 * Math.max(0.85, Math.min(1.3, pane.zoom))) + 3;
+            return Math.max(1, Math.floor(listView.height / rowHeight));
+        }
+        return Math.max(1, Math.floor(gridView.height / cellH));
+    }
+
     function selectFirstMatch(prefix) {
         var rows = JSON.parse(paneEngine.rows_matching(prefix + "*"));
         if (rows.length > 0) {

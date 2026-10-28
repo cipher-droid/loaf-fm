@@ -11,6 +11,7 @@ Item {
     property string icon: ""
     property string variant: "text"
     property bool checked: false
+    property bool keyboardFocusable: false
     property string accessibleName: ""
     Accessible.name: accessibleName.length > 0 ? accessibleName : (text.length > 0 ? text : icon)
 
@@ -76,8 +77,8 @@ Item {
         anchors.fill: parent
         radius: theme.radiusFull
         color: mouse.containsMouse ? root.hoverBg : root.bgColor
-        border.width: root.variant === "outlined" ? 1 : 0
-        border.color: theme.outline
+        border.width: root.activeFocus ? 2 : (root.variant === "outlined" ? 1 : 0)
+        border.color: root.activeFocus ? theme.primary : theme.outline
 
         Behavior on color { enabled: theme.animate; ColorAnimation { duration: 120 } }
     }
@@ -100,6 +101,15 @@ Item {
             color: root.fgColor
             font.pixelSize: theme.fs(13)
             font.bold: root.variant === "filled" || root.variant === "tonal"
+        }
+    }
+
+    activeFocusOnTab: root.keyboardFocusable
+
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            root.clicked();
+            event.accepted = true;
         }
     }
 

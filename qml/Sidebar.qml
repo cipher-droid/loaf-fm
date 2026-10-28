@@ -12,6 +12,9 @@ Rectangle {
     property bool expanded: false
     // Id of the highlighted entry ("pc", "settings", "home", "bookmark:/x", ...).
     property string activeId: ""
+    // Keyboard navigation (Ctrl+B): the rail behaves like a list.
+    property bool keyboardActive: false
+    property int kbIndex: 0
 
     signal placeClicked(var place, bool newTab)
     signal settingsClicked()
@@ -115,6 +118,66 @@ Rectangle {
     onActiveIdChanged: Qt.callLater(updateHighlight)
     onShowTrashChanged: Qt.callLater(updateHighlight)
     onExpandedChanged: Qt.callLater(updateHighlight)
+
+    // The entries the keyboard can land on, in visual order: places, Trash,
+    // Settings. Kept in one place so the focus ring and kbMove cannot drift.
+    readonly property var kbEntries: {
+        var out = [];
+        for (var i = 0; i < places.length; ++i) {
+            if (places[i].id === "trash")
+                continue;
+            out.push({ kind: "place", place: places[i] });
+        }
+        if (showTrash)
+            out.push({ kind: "trash", place: trashPlace });
+        out.push({ kind: "settings", place: null });
+        return out;
+    }
+
+    function kbReset() {
+        var index = 0;
+        for (var i = 0; i < kbEntries.length; ++i) {
+            var entry = kbEntries[i];
+            if (entry.kind === "settings" && activeId === "settings")
+                index = i;
+            else if (entry.kind === "trash" && activeId === "trash")
+                index = i;
+            else if (entry.place && entry.place.id === activeId)
+                index = i;
+        }
+        kbIndex = Math.max(0, Math.min(kbEntries.length - 1, index));
+        kbScroll();
+    }
+
+    function kbMove(delta) {
+        if (kbEntries.length === 0)
+            return;
+        kbIndex = Math.max(0, Math.min(kbEntries.length - 1, kbIndex + delta));
+        kbScroll();
+    }
+
+    function kbActivate() {
+        var entry = kbEntries[Math.max(0, Math.min(kbEntries.length - 1, kbIndex))];
+        if (!entry)
+            return;
+        if (entry.kind === "settings")
+            settingsClicked();
+        else
+            placeClicked(entry.place, false);
+    }
+
+    function kbScroll() {
+        var entry = kbEntries[kbIndex];
+        if (!entry)
+            return;
+        if (entry.kind === "place") {
+            var row = Math.min(kbIndex, placeList.count - 1);
+            if (row >= 0)
+                placeList.positionViewAtIndex(row, ListView.Contain);
+        } else {
+            placeList.positionViewAtEnd();
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -250,6 +313,7 @@ Rectangle {
                 selected: rail.activeId === modelData.id
                 dimmed: modelData.missing === true || (modelData.kind === "smb" && modelData.connected !== true)
                 dropPath: (modelData.kind === "place" || modelData.kind === "bookmark" || (modelData.kind === "smb" && modelData.connected === true)) ? modelData.path : ""
+                keyboardFocus: rail.keyboardActive && rail.kbIndex === index
                 accessibleName: modelData.name
                 onClicked: rail.placeClicked(modelData, false)
                 onMiddleClicked: rail.placeClicked(modelData, true)
@@ -315,6 +379,7 @@ Rectangle {
                 label: qsTr("Trash")
                 showLabel: rail.expanded
                 selected: rail.activeId === "trash"
+                keyboardFocus: rail.keyboardActive && rail.kbIndex === placeList.count
                 accessibleName: qsTr("Trash")
                 acceptsTrashDrop: true
                 onClicked: rail.placeClicked(rail.trashPlace, false)
@@ -334,6 +399,7 @@ Rectangle {
             label: qsTr("Settings")
             showLabel: rail.expanded
             selected: rail.activeId === "settings"
+            keyboardFocus: rail.keyboardActive && rail.kbIndex === placeList.count + (rail.showTrash ? 1 : 0)
             accessibleName: qsTr("Settings")
             onClicked: rail.settingsClicked()
         }
@@ -347,6 +413,7 @@ Rectangle {
         property string label: ""
         property bool showLabel: false
         property bool selected: false
+        property bool keyboardFocus: false
         property bool dimmed: false
         property string dropPath: ""
         property bool acceptsTrashDrop: false
@@ -374,7 +441,7 @@ Rectangle {
             radius: 22
             color: btn.dropHover ? theme.primaryContainer
                 : (mouse.containsMouse && !btn.selected ? theme.hoverOverlay : "transparent")
-            border.width: btn.dropHover ? 2 : 0
+            border.width: (btn.dropHover || btn.keyboardFocus) ? 2 : 0
             border.color: theme.primary
             Behavior on color { enabled: theme.animate; ColorAnimation { duration: theme.durationFast } }
             Behavior on width { enabled: theme.animate; SpringAnimation { spring: 3.5; damping: 0.35 } }

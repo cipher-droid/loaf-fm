@@ -27,9 +27,11 @@ ColumnLayout {
     readonly property bool matchRename: matches("click rename inline single click")
     readonly property bool matchSearch: matches("search file contents text inside")
     readonly property bool matchSession: matches("session restore tabs remember last folder window startup launch")
+    readonly property bool matchKeyboard: matches("keyboard vim keys bindings shortcuts palette commands hjkl")
 
     readonly property int matchCount: (matchOpenDirs ? 1 : 0) + (matchDrag ? 1 : 0) + (matchHidden ? 1 : 0)
         + (matchDisambig ? 1 : 0) + (matchRename ? 1 : 0) + (matchSearch ? 1 : 0) + (matchSession ? 1 : 0)
+        + (matchKeyboard ? 1 : 0)
 
     Layout.fillWidth: true
     spacing: 16
@@ -158,6 +160,43 @@ ColumnLayout {
             LoafSwitch {
                 checked: typeof core !== "undefined" && core ? core.get_setting("restoreSession") !== "false" : true
                 onToggled: if (typeof core !== "undefined" && core) core.set_setting("restoreSession", checked ? "true" : "false")
+            }
+        }
+    }
+
+    // Category 4: Keyboard
+    SettingCard {
+        visible: root.matchKeyboard
+        title: qsTr("Keyboard")
+        subtitle: qsTr("Vim-style navigation and command discovery")
+        icon: "keyboard"
+
+        SettingRow {
+            icon: "keyboard"
+            title: qsTr("Vim keys")
+            subtitle: qsTr("h/j/k/l, gg/G, dd, /, :, ? in the file view. Turn off to type-to-filter again")
+
+            LoafSwitch {
+                checked: theme.vimKeys
+                onToggled: function(c) { theme.vimKeys = c; }
+            }
+        }
+
+        SettingDivider {}
+
+        SettingRow {
+            icon: "command"
+            title: qsTr("Command palette")
+            subtitle: qsTr("Ctrl+Shift+P or : — search every action, including ones without a shortcut")
+
+            LoafButton {
+                text: qsTr("Show all shortcuts")
+                variant: "tonal"
+                keyboardFocusable: true
+                onClicked: {
+                    if (typeof window !== "undefined" && window)
+                        window.openKeyboardHelp();
+                }
             }
         }
     }

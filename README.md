@@ -203,6 +203,20 @@ folder" from browsers and other apps opens it.
 
 ## Keyboard Shortcuts
 
+Loaf is fully keyboard-driven. Press `?` (or `F1`) for the cheat sheet,
+`Ctrl` + `Shift` + `P` (or `:`) for the command palette, and see
+[docs/keyboard.md](docs/keyboard.md) for the complete reference.
+
+### Vim keys
+
+Vim-style navigation ships on by default in the file view (toggle it in
+**Settings → Behavior → Keyboard**): `h`/`j`/`k`/`l` to move, `gg`/`G` for the
+ends, counts like `12j`, `dd` to trash, `yy`/`p` to copy and paste, `a`/`A` for
+a new folder or file, `v` for visual mode, `/` to filter, `:` for commands and
+`?` for help. `Ctrl` + `d` / `Ctrl` + `u` move half a page.
+
+### General
+
 | Shortcut | Action |
 | :--- | :--- |
 | `Ctrl` + `Z` | Undo last operation |
@@ -230,13 +244,19 @@ folder" from browsers and other apps opens it.
 | `Ctrl` + `F` | Search |
 | `Ctrl` + `N` | New window |
 | `Ctrl` + `Shift` + `N` | New folder |
-| `Ctrl` + `D` | Add the folder to the sidebar |
+| `Ctrl` + `Shift` + `D` | Add the folder to the sidebar |
 | `Ctrl` + `S` / `Ctrl` + `Shift` + `I` | Select by pattern / Invert selection |
 | `Ctrl` + `Shift` + `C` | Copy path |
 | `Alt` + `Enter` | Properties |
 | `Ctrl` + `+` / `Ctrl` + `-` / `Ctrl` + `0` / `Ctrl` + Scroll | Icon size |
 | `Ctrl` + `1` / `Ctrl` + `2` | Grid / List view |
 | `Alt` + `Home` | Home folder |
+| `Ctrl` + `Shift` + `P` | Command palette |
+| `F1` / `?` | Keyboard cheat sheet |
+| `Ctrl` + `B` | Focus the sidebar |
+| `Shift` + `F10` | Context menu for the selection |
+| `Alt` + `1` … `9` | Jump to a tab |
+| `PageUp` / `PageDown` | Move a page at a time |
 
 ---
 
@@ -264,6 +284,9 @@ loaf/
 │   ├── FilePane.qml         One file view (grid / list, selection, inline rename)
 │   ├── Sidebar.qml          Places, bookmarks, Recent, Starred and Trash
 │   ├── QuickLook.qml        Space-bar preview
+│   ├── VimKeys.qml          Vim-style key parser (counts, prefixes, visual mode)
+│   ├── CommandPalette.qml   Fuzzy command launcher
+│   ├── KeyHelp.qml          Generated keyboard cheat sheet
 │   ├── PropertiesDialog.qml / BatchRenameDialog.qml / ConflictDialog.qml
 │   ├── OperationsPanel.qml / Toast.qml   Progress pill and messages
 │   ├── PCView.qml           This PC tab: storage devices and frequent folders
